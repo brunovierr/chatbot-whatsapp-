@@ -8,7 +8,7 @@ Funcionalidades Atuais
 
     Informações de Contato: Exibição do telefone e endereço da unidade.
 
-    Encaminhamento: Opção para falar diretamente com um atendente humano.
+    Encaminhamento: Opção para falar diretamente com um atendente humano + alerta enviado ao atendente.
 
 🛠️ Tecnologias Utilizadas
 
