@@ -1,187 +1,143 @@
 // =====================================
-// IMPORTAÇÕES
+// importacoes e configs
 // =====================================
 const qrcode = require("qrcode-terminal");
 const { Client, Location, MessageMedia, LocalAuth } = require("whatsapp-web.js");
 
-// =====================================
-// CONFIGURAÇÃO DO CLIENTE
-// =====================================
 const client = new Client({
   authStrategy: new LocalAuth(),
   puppeteer: { headless: true, args: ["--no-sandbox"] },
 });
 
+
+const userEstado = {}; 
+
 // =====================================
-// QR CODE
+// funcoes aux
+// =====================================
+const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+
+// Passamos o 'chat' como parâmetro para evitar o erro de ReferenceError
+const typing_a = async (chat) => {
+  await delay(2000);
+  await chat.sendStateTyping();
+  await delay(2000);
+};
+
+const typing_b = async (chat) => {
+  await delay(1000);
+  await chat.sendStateTyping();
+  await delay(500);
+};
+
+// =====================================
+// eventos p conectar o wweb
 // =====================================
 client.on("qr", (qr) => {
   console.log("Escaneie o QR Code:");
   qrcode.generate(qr, { small: true });
 });
 
-// =====================================
-// WHATSAPP CONECTADO
-// =====================================
-client.on("ready", () => {
-  console.log("WhatsApp conectado.");
-});
+client.on("ready", () => console.log("WhatsApp conectado."));
+client.on("disconnected", (reason) => console.log(" Desconectado:", reason));
 
-// =====================================
-// DESCONEXÃO
-// =====================================
-client.on("disconnected", (reason) => {
-  console.log(" Desconectado:", reason);
-});
-
-// =====================================
-// INICIALIZA
-// =====================================
 client.initialize();
 
 // =====================================
-// FUNÇÃO DE DELAY
+// logica das mensagens
 // =====================================
-const delay = (ms) => new Promise((res) => setTimeout(res, ms));
-const userEstado = {}; // para que 
-
-// MENSAGENS
 client.on("message", async (msg) => {
-
   try {
     if (!msg.from || msg.from.endsWith("@g.us")) return;
+    
     const chat = await msg.getChat();
     if (chat.isGroup) return;
 
     const texto = msg.body ? msg.body.trim().toLowerCase() : "";
     const userId = msg.from;
 
-    // SIMULA DIGITACAO
-    const typing = async () => {
-      await delay(2000);
-      await chat.sendStateTyping();
-      await delay(2000);
-    };
+    if (texto === "menu") {
+      userEstado[userId] = "MENU"; 
+      const contact = await msg.getContact();
+      const nome = contact.pushname || "Cliente";
+      
+      await typing_b(chat);
+      const mensagemMenu = `Seja bem-vindo(a) à Med Clean. 🧺\n\nComo podemos ajudar você hoje? Digite o número da opção desejada:\n\n1. Ver Serviços & Preços.\n2. Ver Telefone de Contato.\n3. Ver nosso Endereço.\n4. Ver Horário de Funcionamento.\n5. Outras dúvidas / Falar com um Atendente.`;
+      
+      return await client.sendMessage(userId, mensagemMenu);
+    }
 
-    // =====================================
-    // MENSAGEM INICIAL
-    // =====================================
-    if (/^(teste)$/i.test(texto)) {
-      // if (/^(teste|ol[aá]|dia|tarde|noite|oi|bom\s+dia|boa\s+tarde|boa\s+noite|opa|salve|hey|hi)$/i.test(texto)) {
-      const hora = new Date().getHours();
+    const contact = await msg.getContact();
+    const nome = contact.pushname || "Cliente";
+    const horario = new Date().toLocaleString("pt-BR");
+    const horaAtual = new Date().getHours();
+    const numeroCliente = contact.id.user;
+    const numeroConectado = client.info.wid._serialized;
+
+    // mensagens
+    const mensagemMenu = `Seja bem-vindo(a) à Med Clean. 🧺\n\nComo podemos ajudar você hoje? Digite o número da opção desejada:\n\n1. Ver Serviços & Preços.\n2. Ver Telefone de Contato.\n3. Ver nosso Endereço.\n4. Ver Horário de Funcionamento.\n5. Outras dúvidas / Falar com um Atendente.`;
+    
+    const mensagem1 = `Aqui está nossa tabela de preços atualizada! 🧺`;
+    const mensagem2 = `📞 O nosso telefone de contato é *61 3301-1443*.`;
+    const mensagem3 = `📍 Estamos localizados no Guará II, no endereço:\nQE 40 Conjunto D Lote 20 - Guará, Brasília - DF.`;
+    const mensagem4 = `Nosso horário de funcionamento é de segunda a sexta, das *08:00 às 18:00*, e aos sábados, das *08:00 às 12:00*.`;
+    const mensagem5_a = `Entendido! Em instantes, um de nossos atendentes dará continuidade à conversa.\nPor favor, aguarde só um momento! ⏳\n\nCaso queira retornar digite _*MENU*_.`;
+    const mensagem5_b = `Agradecemos o seu contato, porém no momento não há atendentes disponíveis.🫤\n\nNosso horário de funcionamento é de segunda a sexta *08:00 às 18:00* e aos sábados *08:00 às 12:00*.\nPor favor, deixe sua mensagem e retornaremos o contato o mais breve possível!\n\nCaso queira retornar digite _*MENU*_.`;
+    
+    const localizacao = new Location(-15.842678653156582, -47.98440178074539, "Lavanderia Med Clean");
+    const alertaAtendimento = `*🚨Notificação de atendimento*\n*Cliente:* ${nome}\n*Número:* ${numeroCliente}\n*Hora:* ${horario}`;
+
+    const validacaoMsg = /^(teste|ol[aá]|dia|tarde|noite|oi|bom\s+dia|boa\s+tarde|boa\s+noite|opa)\b/i;
+
+    if (validacaoMsg.test(texto)) {
+      
       let saudacao = "Olá";
-
-      if (hora >= 5 && hora < 12) saudacao = "Bom dia";
-      else if (hora >= 12 && hora < 18) saudacao = "Boa tarde";
+      if (horaAtual >= 5 && horaAtual < 12) saudacao = "Bom dia";
+      else if (horaAtual >= 12 && horaAtual < 18) saudacao = "Boa tarde";
       else saudacao = "Boa noite";
 
-      const contact = await msg.getContact();
-      const nome = contact.pushname;
-
-      await delay(1000);
-      await chat.sendStateTyping();
-      await delay(500);
-
-      await client.sendMessage(
-        msg.from,
-        `${saudacao} ${nome}! 👋`
-      );
-
-      await typing();
-      userEstado[userId] = "MENU";
-      return await client.sendMessage(
-        msg.from,
-        `Seja bem-vindo(a) à Med Clean. 🧺
-
-Como podemos ajudar você hoje? Digite o número da opção desejada:
-
-1. Ver Serviços & Preços.
-2. Ver Telefone de Contato.
-3. Ver nosso Endereço.
-4. Ver Horário de Funcionamento.
-5. Outras dúvidas / Falar com um Atendente.`
-      );
+      await client.sendMessage(userId, `${saudacao} ${nome}! 👋`);
+      await typing_a(chat); 
+      
+      userEstado[userId] = "MENU"; 
+      return await client.sendMessage(userId, mensagemMenu);
     }
+ 
+    // processa as mensagens de acordo com a requisicaop pelo cliente
     if (userEstado[userId] === "MENU") {
-      if (msg.body === '1') {
-        // if (/(pre[cç]o|valor|tabela|quanto|custa|servi[çc]o)/i.test(texto) | msg.body === '1') {
+      if (texto === "1") {
+        await typing_b(chat);
+        const media = MessageMedia.fromFilePath("./media/tabela.png");
+        await client.sendMessage(userId, media);
+        await client.sendMessage(userId, mensagem1);
+      } 
+      else if (texto === "2") {
+        await typing_b(chat);
+        await client.sendMessage(userId, mensagem2);
+      } 
+      else if (texto === "3") {
+        await typing_b(chat);
+        await client.sendMessage(userId, localizacao);
+        await client.sendMessage(userId, mensagem3);
+      } 
+      else if (texto === "4") {
+        await typing_b(chat);
+        await client.sendMessage(userId, mensagem4);
+      } 
 
-        const media = MessageMedia.fromFilePath('./media/tabela.png');
-
-        await delay(500);
-        await chat.sendStateTyping();
-        await delay(500);
-
-        client.sendMessage(msg.from, media);
-
-        await delay(1000);
-        await chat.sendStateTyping();
-        await delay(500);
-
-        client.sendMessage(msg.from,
-          `Aqui está nossa tabela de preços atualizada! 🧺`
-        );
-      };
-
-      if (msg.body === '2') {
-
-        await delay(1000);
-        await chat.sendStateTyping();
-        await delay(500);
-
-        client.sendMessage(msg.from,
-          `📞 O nosso telefone de contato é *61 3301-1443*.`
-        );
-      };
-
-      if (msg.body == '3') {
-        const localizacao = new Location(-15.842678653156582, -47.98440178074539, 'Lavanderia Med Clean');
-
-        await delay(1000);
-        await chat.sendStateTyping();
-        await delay(500);
-
-        client.sendMessage(msg.from, localizacao);
-        client.sendMessage(msg.from,
-          `📍 Estamos localizados no Guará II, no endereço:\nQE 40 Conjunto D Lote 20 - Guará, Brasília - DF.`);
-      };
-
-      if (msg.body == '4') {
-
-        await delay(1000);
-        await chat.sendStateTyping();
-        await delay(500);
-
-        client.sendMessage(msg.from,
-          `Nosso horário de funcionamento é de segunda a sexta, das *08:00 às 18:00*, e aos sábados, das *08:00 às 12:00*.`
-        );
-      };
-
-      if (msg.body == '5') {
-        const contact = await msg.getContact();
-        const nome = contact.pushname;
-        const horario = new Date().toLocaleString('pt-BR');
-        const numeroCliente = contact.id.user;
-
-        const alerta = `*🚨Notificação de atendimento*\n *Cliente:* ${nome} solicitou atendimento.\n *Número:* ${numeroCliente}.\n *Hora:* ${horario}`;
-        client.sendMessage(client.info.wid._serialized, alerta);
-
-        await delay(1000);
-        await chat.sendStateTyping();
-        await delay(500);
-
-        const hora = new Date().toLocaleTimeString('pt-BR');
-        if (hora >= 8 && hora <= 18) {
-          client.sendMessage(msg.from,
-            `Entendido! Em instantes, um de nossos atendentes dará continuidade à conversa.\nPor favor, aguarde só um momento! ⏳`);
+      else if (texto === "5") {
+        await client.sendMessage(numeroConectado, alertaAtendimento);
+        await typing_b(chat);
+    
+        if (horaAtual >= 8 && horaAtual < 18) {
+          await client.sendMessage(userId, mensagem5_a);
         } else {
-          client.sendMessage(msg.from,
-            `Agradecemos o seu contato, porém no momento não há atendentes disponíveis.🫤\n\nNosso horário de funcionamento é de segunda a sexta *08:00 às 18:00* e aos sábados *08:00 às 12:00*.\nPor favor, deixe sua mensagem e retornaremos o contato o mais breve possível!`
-          );
-        };
-      };
-    };
-    } catch (error) {
-      console.error("Erro no processamento da mensagem:", error);
+          await client.sendMessage(userId, mensagem5_b);
+        }
+    delete userEstado[userId]; 
     }
-  });
+  }
+  } catch (error) {
+    console.error("Erro no processamento da mensagem:", error);
+  }
+});
